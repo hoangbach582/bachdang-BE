@@ -28,26 +28,45 @@ app.get("/", (req, res) => {
 //     res.status(500).json({ error: "Server lỗi" });
 //   }
 // });
+const axios = require("axios");
 
 app.post("/convert", async (req, res) => {
     try {
-      const { sub1, sub2, link } = req.body;
-  
-      if (!link) {
-        return res.status(400).json({ error: "Thiếu link" });
-      }
-  
-      // LOGIC RÚT GỌN THẬT: Sau này bạn sẽ gọi Shopee API tại đây.
-      // Hiện tại, chúng ta tạo ra một mã định danh ngẫu nhiên để link ngắn gọn.
-      const randomId = Math.random().toString(36).substring(2, 10);
-      const shortLink = `https://s.shopee.vn/${randomId}`;
-  
-      res.json({ success: true, shortLink });
-  
+        const { sub1, sub2, link } = req.body;
+
+        if (!link) {
+            return res.status(400).json({ error: "Thiếu link gốc" });
+        }
+
+        // 1. Tạo link dài có gắn SubID để Shopee ghi nhận hoa hồng
+        const longUrl = `${link}${link.includes('?') ? '&' : '?'}sub_id1=${sub1}&sub_id2=${sub2}`;
+
+        // 2. Gọi API Bitly để rút gọn link này
+        const bitlyResponse = await axios.post(
+            'https://api-ssl.bitly.com/v4/shorten',
+            {
+                long_url: longUrl,
+                domain: "bit.ly"
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${process.env.BITLY_TOKEN}`, // Dùng biến môi trường
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        // 3. Trả kết quả về cho Frontend
+        res.json({ 
+            success: true, 
+            shortLink: bitlyResponse.data.link 
+        });
+
     } catch (err) {
-      res.status(500).json({ error: "Server lỗi" });
+        console.error("Lỗi Bitly:", err.response ? err.response.data : err.message);
+        res.status(500).json({ error: "Không thể rút gọn link qua Bitly" });
     }
-  });
+});
 
 const PORT = process.env.PORT || 3000;
 
