@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const axios = require("axios");
 
 const app = express();
 
@@ -8,27 +9,8 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("Shopee Convert API Running...");
+  res.send("Shopee Convert API Running with TinyURL v2...");
 });
-
-// app.post("/convert", async (req, res) => {
-//   try {
-//     const { sub1, sub2, link } = req.body;
-
-//     if (!link) {
-//       return res.status(400).json({ error: "Thiếu link" });
-//     }
-
-//     // TODO: Sau này gọi API Shopee thật ở đây
-//     const shortLink = `${link}?sub_id1=${sub1}&sub_id2=${sub2}`;
-
-//     res.json({ success: true, shortLink });
-
-//   } catch (err) {
-//     res.status(500).json({ error: "Server lỗi" });
-//   }
-// });
-const axios = require("axios");
 
 app.post("/convert", async (req, res) => {
     try {
@@ -38,38 +20,37 @@ app.post("/convert", async (req, res) => {
             return res.status(400).json({ error: "Thiếu link gốc" });
         }
 
-        // 1. Tạo link dài có gắn SubID để Shopee ghi nhận hoa hồng
+        // 1. Tạo link dài có gắn SubID
         const longUrl = `${link}${link.includes('?') ? '&' : '?'}sub_id1=${sub1}&sub_id2=${sub2}`;
 
-        // 2. Gọi API Bitly để rút gọn link này
-        const bitlyResponse = await axios.post(
-            'https://api-ssl.bitly.com/v4/shorten',
+        // 2. Gọi API TinyURL v2 với Token của bạn
+        const response = await axios.post(
+            'https://api.tinyurl.com/create',
             {
-                long_url: longUrl,
-                domain: "bit.ly"
+                url: longUrl,
+                domain: "tinyurl.com"
             },
             {
                 headers: {
-                    'Authorization': `Bearer ${process.env.BITLY_TOKEN}`, // Dùng biến môi trường
+                    'Authorization': `Bearer ${process.env.TINYURL_TOKEN}`, // Sử dụng Token từ Variables
                     'Content-Type': 'application/json'
                 }
             }
         );
 
-        // 3. Trả kết quả về cho Frontend
+        // 3. Trả kết quả về (TinyURL v2 trả về object, link nằm trong data.tiny_url)
         res.json({ 
             success: true, 
-            shortLink: bitlyResponse.data.link 
+            shortLink: response.data.data.tiny_url 
         });
 
     } catch (err) {
-        console.error("Lỗi Bitly:", err.response ? err.response.data : err.message);
-        res.status(500).json({ error: "Không thể rút gọn link qua Bitly" });
+        console.error("Lỗi TinyURL v2:", err.response ? err.response.data : err.message);
+        res.status(500).json({ error: "Không thể rút gọn link qua TinyURL v2" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log("Server chạy tại port " + PORT);
 });
